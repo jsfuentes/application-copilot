@@ -7,7 +7,7 @@ import { getAxios } from "../shared/background";
 
 function Popup() {
   useEffect(() => {
-    getAxios().then(axios => debug("Axios:", axios));
+    getAxios().then((axios) => debug("Axios:", axios));
   }, []);
 
   return <button className="bg-red-500 p-2">Activate Superpowers</button>;

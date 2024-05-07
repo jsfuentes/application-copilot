@@ -6,7 +6,7 @@ const debug = debugMaker("app:scripts:dev_debug");
 
 if (isDevMode()) {
   console.log(
-    "Starting console debug mode (turn on verbose in console to see debug messages)"
+    "Starting console debug mode (turn on verbose in console to see debug messages)",
   );
   debugMaker.enable("app:*");
   debug("Welcome to console debug mode");
@@ -27,12 +27,12 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
       `${namespace} ${key} changed from`,
       storageChange.oldValue,
       "to",
-      storageChange.newValue
+      storageChange.newValue,
     );
   }
 });
 
-chrome.runtime.onMessage.addListener(msg => {
+chrome.runtime.onMessage.addListener((msg) => {
   debug("Message recieved", msg);
   // Content script debug messages will be slightly delayed
   // console.log("Message recieved", msg);

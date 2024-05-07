@@ -32,7 +32,7 @@ export async function getAxios() {
     } else {
       debug("Using axios prod");
       axios = axiosBase.create({
-        baseURL: eConfig["server_url"]
+        baseURL: eConfig["server_url"],
         // withCredentials: true
         /* other custom settings */
       });
