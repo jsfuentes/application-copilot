@@ -1,0 +1,52 @@
+{
+  "name": "Chrome Plugin Base",
+  "version": "0.0.3",
+  "description": "Test base",
+  "manifest_version": 3,
+  "options_page": "options.html",
+
+  "permissions": [
+    "tabs",
+    "storage",
+    "webNavigation",
+    "identity",
+    "identity.email",
+    "management"
+  ],
+
+  "host_permissions": ["*://*/*"],
+
+  "web_accessible_resources": [
+    {
+      "resources": ["*/*.map"],
+      "matches": ["<all_urls>"]
+    },
+    {
+      "resources": ["popup/*.css", "popup/*.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "run_at": "document_idle",
+      "js": ["content/content.js"]
+    }
+  ],
+
+  "background": {
+    "service_worker": "service_worker/service_worker.js"
+  },
+
+  "action": {
+    "default_popup": "popup/popup.html"
+  },
+
+  "icons": {
+    "16": "icon.png",
+    "24": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  }
+}

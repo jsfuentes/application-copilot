@@ -1,0 +1,51 @@
+{
+  "name": "chrome-plugin-base",
+  "version": "0.0.3",
+  "description": "Make web fun again",
+  "scripts": {
+    "build": "rm -rf dist/popup && parcel build --public-url ./",
+    "watch": "rm -rf dist/popup && parcel watch --public-url ./ --no-hmr",
+    "clean": "rm -rf node_modules && rm package-lock.json && rm -rf .parcel-cache"
+  },
+  "targets": {
+    "content": {
+      "source": "src/content/content.ts"
+    },
+    "service_worker": {
+      "source": "src/service_worker/service_worker.ts"
+    },
+    "popup": {
+      "source": "src/popup/popup.html"
+    }
+  },
+  "browserslist": "last 4 Chrome major versions",
+  "author": "Jorge Fuentes",
+  "dependencies": {
+    "axios": "^1.6.8",
+    "debug": "^4.3.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.5",
+    "@babel/preset-env": "^7.24.5",
+    "@babel/preset-react": "^7.24.1",
+    "@babel/runtime": "^7.24.5",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.0",
+    "buffer": "^6.0.3",
+    "chrome-types": "^0.1.282",
+    "concurrently": "^8.2.2",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.1.3",
+    "eslint-plugin-react": "^7.34.1",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "parcel": "^2.12.0",
+    "parcel-bundler": "^1.12.5",
+    "postcss": "^8.4.38",
+    "prettier": "^3.2.5",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.4.5"
+  }
+}
