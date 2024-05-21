@@ -5,7 +5,7 @@
   "scripts": {
     "build": "rm -rf dist/popup && parcel build --public-url ./",
     "watch": "rm -rf dist/popup && parcel watch --public-url ./ --no-hmr",
-    "clean": "rm -rf node_modules && rm package-lock.json && rm -rf .parcel-cache"
+    "clean": "rm -rf dist/popup && rm -rf dist/content && rm -rf dist/service_worker && rm -rf node_modules && rm package-lock.json && rm -rf .parcel-cache"
   },
   "targets": {
     "content": {
@@ -21,7 +21,7 @@
   "browserslist": "last 4 Chrome major versions",
   "author": "Jorge Fuentes",
   "dependencies": {
-    "axios": "^1.6.8",
+    "axios": "^1.7.2",
     "debug": "^4.3.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
@@ -32,9 +32,10 @@
     "@babel/preset-react": "^7.24.1",
     "@babel/runtime": "^7.24.5",
     "@types/chrome": "^0.0.267",
-    "@types/node": "^20.12.10",
+    "@types/node": "^20.12.12",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.0",
+    "@types/webextension-polyfill": "^0.10.7",
     "buffer": "^6.0.3",
     "chrome-types": "^0.1.282",
     "concurrently": "^8.2.2",
@@ -48,6 +49,7 @@
     "postcss": "^8.4.38",
     "prettier": "^3.2.5",
     "tailwindcss": "^3.4.3",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "webextension-polyfill": "^0.12.0"
   }
 }
