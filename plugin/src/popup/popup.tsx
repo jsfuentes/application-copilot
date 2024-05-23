@@ -23,9 +23,8 @@ function Popup() {
   }
 
   return (
-    <div>
-      <input
-        type="text"
+    <div className="w-64">
+      <textarea
         className="w-full border border-1 border-gray-400"
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}

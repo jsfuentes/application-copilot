@@ -13,17 +13,29 @@ browser.storage.sync.get(["test"]).then(async (storage) => {
   });
 });
 
-//#1 Check if the page is a form
+//#1 Check if the page is a form, can just check for form and input tags?
 const body = document.querySelector("body")?.innerHTML;
 console.log(document.querySelector("body")?.innerHTML);
 const prompt =
-  "Does the following HTML contain a form? Respond only yes or no. \n HTML: \n" +
+  "Does the following HTML contain a HTML Form div with inputs? Respond only yes or no. \n HTML: \n" +
   body;
 chrome.runtime.sendMessage({ type: C.llm_generate, prompt }, (resp) => {
   debug("RESP", resp);
 });
 
-addControls();
+// #2 If yes, then add Controls to the page with a start button to start the process
+
+// #3 On start, go to first value
+
+// #4
+
+// A Parse page to get all form inputs with labels in order
+// i Use the already written label getter looking around the input
+// ii For radio buttons, get all radio buttons in the same group
+// iii For select, get all options
+// I Could use LLMs to get the labels
+
+addControls(parseForm);
 
 function isHidden(el: HTMLElement) {
   const computedStyle = window.getComputedStyle(el);
@@ -44,14 +56,22 @@ function getNearbyLabel(el: HTMLElement) {
   }
 
   let label: string | null = null;
-  Array.from(parent.children).forEach((child) => {
-    if (child === el || isHidden(child as HTMLElement)) {
+  Array.from(parent.childNodes).forEach((child) => {
+    // debug("CHILDREN", child);
+    child;
+    if (
+      child === el ||
+      (child.nodeType === 1 && isHidden(child as HTMLElement))
+    ) {
       return;
     }
 
-    if ("innerText" in child && child.innerText) {
-      // debug("Found inner text", child.innerText);
+    if (child.nodeType === 1 && "innerText" in child && child.innerText) {
+      debug("Found inner text", child.innerText);
       label = child.innerText as string;
+    } else if (child.nodeType === 3 && child.textContent) {
+      debug("Found text content", child.textContent);
+      label = child.textContent as string;
     }
   });
 
@@ -62,82 +82,193 @@ function getNearbyLabel(el: HTMLElement) {
   }
 }
 
-// function getRadioGroup(el: HTMLInputElement) {
-//   const parent = el.parentElement;
-//   if (!parent) {
-//     debug("No parent");
-//     return null;
-//   }
+// Need to group checkboxs and radios
 
-//   let radios: HTMLInputElement[] = [];
-//   Array.from(parent.children).forEach((child) => {
-//     if (child === el || isHidden(child as HTMLElement)) {
-//       return;
-//     }
+type SingleInput = {
+  type: "TEXT" | "TEXTAREA" | "EMAIL" | "TEL";
+  question: string | null;
+  input: HTMLInputElement | HTMLTextAreaElement;
+};
 
-//     if ("tagName" in child && child.tagName === "INPUT") {
-//       radios.push(child as HTMLInputElement);
-//     }
-//   });
+type SelectInput = {
+  type: "SELECT";
+  question: string | null;
+  input: HTMLSelectElement;
+  options: Array<string>;
+};
 
-//   if (radios.length > 1) {
-//     return radios;
-//   } else {
-//     return getRadioGroup(parent);
-//   }
-// }
+type MultiInput = {
+  type: "CHECKBOX" | "RADIO";
+  question: string | null;
+  inputs: {
+    label: string | null;
+    input: HTMLInputElement;
+  }[];
+};
 
-function fillForm() {
+type FormInput = SingleInput | SelectInput | MultiInput;
+
+type FormElement = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+
+function parseForm() {
+  const elementsWithLabels: Array<{
+    label: string | null;
+    element: FormElement;
+  }> = [];
   document.querySelectorAll("input, textarea, select").forEach((elRaw, j) => {
-    const el = elRaw as
-      | HTMLInputElement
-      | HTMLTextAreaElement
-      | HTMLSelectElement;
+    const el = elRaw as FormElement;
     if (isHidden(el)) {
       return;
     }
     let label: string | null = null;
 
-    switch (el.tagName) {
-      case "SELECT":
-        label = getNearbyLabel(el);
+    elementsWithLabels.push({
+      label: getNearbyLabel(el),
+      element: el,
+    });
 
-        if ("options" in el && el.options.length > 0) {
-          el.value = el.options[1].value;
+    debug("el found", j, label, el, el.value);
+  });
+  debug("ELEMENTS", elementsWithLabels);
+
+  // Group elements by label
+  const formQuestions: Array<FormInput> = [];
+
+  for (let i = 0; i < elementsWithLabels.length; i++) {
+    const el = elementsWithLabels[i];
+    const label = el.label;
+    const element = el.element;
+
+    switch (element.tagName) {
+      case "SELECT":
+        const options: Array<string> = [];
+        if ("options" in element && element.options.length > 0) {
+          for (let i = 0; i < element.options.length; i++) {
+            options.push(element.options[i].value);
+          }
         }
-        debug("OPTIONS", el.options);
-        //skip for now
-        return;
+
+        formQuestions.push({
+          type: "SELECT",
+          question: label,
+          input: element as HTMLSelectElement,
+          options: options,
+        });
+        break;
       case "TEXTAREA":
-        label = getNearbyLabel(el);
-        el.value = label || "";
+        formQuestions.push({
+          type: "TEXTAREA",
+          question: label,
+          input: element as HTMLTextAreaElement,
+        });
         break;
       case "INPUT":
-        label = getNearbyLabel(el);
-
-        switch (el.type) {
+        switch (element.type) {
           case "text":
-            el.value = label || "";
+            formQuestions.push({
+              type: "TEXT",
+              question: label,
+              input: element as HTMLInputElement,
+            });
+            break;
+          case "email":
+            formQuestions.push({
+              type: "EMAIL",
+              question: label,
+              input: element as HTMLInputElement,
+            });
+            break;
+          case "tel":
+            formQuestions.push({
+              type: "TEL",
+              question: label,
+              input: element as HTMLInputElement,
+            });
             break;
           case "checkbox":
-            //skip for now
-            return;
-          case "email":
-            el.value = label || "";
-            //skip for now
-            return;
           case "radio":
-            //handled seperately
-            return;
+            //get all radios and checkboxes in the same group
+            const group: Array<{
+              label: string | null;
+              input: HTMLInputElement;
+            }> = [];
+            group.push({
+              label: label,
+              input: element as HTMLInputElement,
+            });
+
+            const groupName = element.getAttribute("name");
+            let j = i + 1;
+            while (j < elementsWithLabels.length) {
+              const curEl = elementsWithLabels[j];
+              if (
+                curEl.element.tagName === "INPUT" &&
+                curEl.element.getAttribute("name") === groupName
+              ) {
+                group.push({
+                  // label: curEl.element.value || curEl.label,
+                  label: curEl.label,
+                  input: curEl.element as HTMLInputElement,
+                });
+              } else {
+                break;
+              }
+
+              j++;
+              i++;
+            }
+
+            debug("GROUP", group);
+            const lca = findLowestCommonAncestor(group.map((g) => g.input));
+            debug("LCA", lca);
+            formQuestions.push({
+              type: el.element.type.toUpperCase() as "CHECKBOX" | "RADIO",
+              question: label,
+              inputs: group,
+            });
+            break;
           default:
             break;
         }
-
         break;
       default:
         break;
     }
+  }
 
-    debug("el found", j, label, el);
-  });
+  debug("FORM QUESTIONS", formQuestions);
+}
+
+function getParentList(el: HTMLElement) {
+  const parents: Array<HTMLElement> = [];
+  let curEl: HTMLElement | null = el;
+  while (curEl) {
+    parents.unshift(curEl);
+    curEl = curEl.parentElement;
+  }
+
+  return parents;
+}
+
+function findLowestCommonAncestor(nodes: FormElement[]) {
+  const parents = nodes.map((node) => getParentList(node));
+  debug("PARENTS", parents);
+
+  // Find the lowest common ancestor
+  let i = 0;
+  const minLength = Math.min(...parents.map((p) => p.length));
+  while (i < minLength) {
+    const isInvalid = parents.some((p) => p[i] !== parents[0][i]);
+    if (isInvalid) {
+      break;
+    }
+
+    i++;
+  }
+
+  if (i === 0) {
+    return null;
+  }
+
+  return parents[0][i - 1]; // Return the last matching parent
 }
