@@ -3,8 +3,8 @@
   "version": "0.0.3",
   "description": "Make web fun again",
   "scripts": {
-    "build": "rm -rf dist/popup && parcel build --public-url ./",
-    "watch": "rm -rf dist/popup && parcel watch --public-url ./ --no-hmr",
+    "build": "parcel build --public-url ./",
+    "watch": "parcel watch --public-url ./ --no-hmr",
     "clean": "rm -rf dist/popup && rm -rf dist/content && rm -rf dist/service_worker && rm -rf node_modules && rm package-lock.json && rm -rf .parcel-cache"
   },
   "targets": {

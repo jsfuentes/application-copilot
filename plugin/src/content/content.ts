@@ -14,14 +14,14 @@ browser.storage.sync.get(["test"]).then(async (storage) => {
 });
 
 //#1 Check if the page is a form, can just check for form and input tags?
-const body = document.querySelector("body")?.innerHTML;
-console.log(document.querySelector("body")?.innerHTML);
-const prompt =
-  "Does the following HTML contain a HTML Form div with inputs? Respond only yes or no. \n HTML: \n" +
-  body;
-chrome.runtime.sendMessage({ type: C.llm_generate, prompt }, (resp) => {
-  debug("RESP", resp);
-});
+// const body = document.querySelector("body")?.innerHTML;
+// console.log(document.querySelector("body")?.innerHTML);
+// const prompt =
+//   "Does the following HTML contain a HTML Form div with inputs? Respond only yes or no. \n HTML: \n" +
+//   body;
+// chrome.runtime.sendMessage({ type: C.llm_generate, prompt }, (resp) => {
+//   debug("RESP", resp);
+// });
 
 // #2 If yes, then add Controls to the page with a start button to start the process
 
@@ -37,6 +37,87 @@ chrome.runtime.sendMessage({ type: C.llm_generate, prompt }, (resp) => {
 
 addControls(parseForm);
 
+// ARBITRARY PARSING
+//8k token limit, so *4 character average rounded down to 3.5 = 8000 * 3.5 = 28000 characters
+const LLM_MAX_LENGTH = 28000;
+async function llmParseEverything() {
+  const body = document.querySelector("body");
+  if (!body) {
+    return;
+  }
+
+  const resp = await llmParse(body);
+  debug("FINAL RESP", resp);
+  debug("YES CHILDREN", YES_CHILDREN);
+  // const YES_YES_CHILDREN: Element[] = [];
+  // for (const el of YES_CHILDREN) {
+  //   const elHtml = el.outerHTML;
+  //   const prompt = `Does the following HTML contain a single HTML input or a group of radios/checkboxes including a label of what the input means? Only respond with 'Y' or 'N' and nothing else! \n HTML: \n ${elHtml}`;
+  //   const resp: string = await browser.runtime.sendMessage({
+  //     type: C.llm_generate,
+  //     prompt,
+  //   });
+  //   debug("PROMPT\n", prompt, "RESP\n", resp);
+  //   if (resp === "Y") {
+  //     YES_YES_CHILDREN.push(el);
+  //   }
+  // }
+
+  // debug("YES CHILDREN", YES_CHILDREN);
+  // debug("YES YES CHILDREN", YES_YES_CHILDREN);
+}
+
+const YES_CHILDREN: Element[] = [];
+
+async function llmParse(el: HTMLElement): Promise<string> {
+  const elHtml = el.outerHTML;
+  const elChildren = Array.from(el.children);
+
+  if (elChildren.length > 0) {
+    const parsedChildren = await Promise.all(
+      Array.from(el.children).map(async (child) => {
+        const description = await llmParse(child as HTMLElement);
+        return { el: child, description };
+      }),
+    );
+
+    const resp = parsedChildren.some(
+      (parsedChild) => parsedChild.description === "Y",
+    )
+      ? "Y"
+      : "N";
+    if (resp === "Y") {
+      YES_CHILDREN.push(el);
+    }
+    return resp;
+
+    // const basePrompt = `Does the following HTML descriptions contain a HTML form, editable text, or an input? Only respond with 'Y' or 'N' and nothing else! \n`;
+    // const descriptions = `Descriptions: \n ${parsedChildren.map((parsedChild) => parsedChild.description).join("\n")}`;
+    // const prompt = basePrompt + descriptions;
+    // const resp: string = await browser.runtime.sendMessage({
+    //   type: C.llm_generate,
+    //   prompt,
+    // });
+    // if (resp === "Y") {
+    //   YES_CHILDREN.push(el);
+    // }
+    // debug("PROMPT\n", prompt, "RESP\n", resp);
+    // return resp;
+  }
+
+  const prompt = `Does the following HTML contain a HTML form, editable text, or an input? Only respond with 'Y' or 'N' and nothing else! \n HTML: \n ${elHtml}`;
+  const resp: string = await browser.runtime.sendMessage({
+    type: C.llm_generate,
+    prompt,
+  });
+  if (resp === "Y") {
+    YES_CHILDREN.push(el);
+  }
+  debug("PROMPT\n", prompt, "RESP\n", resp);
+  return resp;
+}
+
+// FORM PARSING
 function isHidden(el: HTMLElement) {
   const computedStyle = window.getComputedStyle(el);
 
@@ -110,11 +191,12 @@ type FormInput = SingleInput | SelectInput | MultiInput;
 
 type FormElement = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 
-function parseForm() {
+async function parseForm() {
   const elementsWithLabels: Array<{
     label: string | null;
     element: FormElement;
   }> = [];
+
   document.querySelectorAll("input, textarea, select").forEach((elRaw, j) => {
     const el = elRaw as FormElement;
     if (isHidden(el)) {
@@ -219,11 +301,9 @@ function parseForm() {
             }
 
             debug("GROUP", group);
-            const lca = findLowestCommonAncestor(group.map((g) => g.input));
-            debug("LCA", lca);
             formQuestions.push({
               type: el.element.type.toUpperCase() as "CHECKBOX" | "RADIO",
-              question: label,
+              question: await getGroupLabel(group),
               inputs: group,
             });
             break;
@@ -248,6 +328,39 @@ function getParentList(el: HTMLElement) {
   }
 
   return parents;
+}
+
+async function getGroupLabel(
+  group: Array<{ label: string | null; input: HTMLInputElement }>,
+) {
+  const inputs = group.map((g) => g.input);
+  const lca = findLowestCommonAncestor(inputs);
+  if (!lca) {
+    return "";
+  }
+
+  const lcaHTML = lca?.outerHTML;
+
+  const prompt = `${lcaHTML}\n Does the above HTML include BOTH the question text and its corresponding radio options? Answer only 'Y' or 'N'.`;
+
+  const resp: string = await browser.runtime.sendMessage({
+    type: C.llm_generate,
+    prompt,
+  });
+  // debug("getGroupLabel", prompt, lca, resp);
+  if (resp === "Y") {
+    const prompt = `${lcaHTML}\n What is the question in the above HTML form group? Return only the question without quotes and nothing else.`;
+
+    const resp: string = await browser.runtime.sendMessage({
+      type: C.llm_generate,
+      prompt,
+    });
+    // debug("getGroupLabel QUESTION", prompt, lca, resp);
+    return resp;
+  } else {
+    // debug("getGroupLabel getNearbyLabel");
+    return getNearbyLabel(lca);
+  }
 }
 
 function findLowestCommonAncestor(nodes: FormElement[]) {
